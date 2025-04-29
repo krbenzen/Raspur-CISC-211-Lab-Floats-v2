@@ -140,7 +140,7 @@ getExponent:
     ands  r0, r0, #0xFF
     subs  r1, r0, #127
     pop   {LR}
-    bx    LR    
+    BX    LR    
     /* YOUR getExponent CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -198,7 +198,7 @@ asmIsZero:
     cmp   r1, #0x00000000
     beq   plusZ
     cmp   r1, #0x80000000
-    beq   minusZ
+    beq    minusZ
     movs  r0, #0
     pop   {LR}
     bx    LR
@@ -248,6 +248,9 @@ asmIsInf:
     movne r0, #-1
     pop   {r2-r3, r12, lr}
     bx    lr
+    
+    
+    
 notInf:
     movs  r0, #0
     pop   {r2-r3, r12, lr}
@@ -292,23 +295,19 @@ asmFmax:
     /* YOUR asmFmax CODE BELOW THIS LINE! VVVVVVVVVVVVVVVVVVVVV  */
     push {r4-r7, lr}
 
-    /* store incoming operands for autograder */
+    /* store for autograder */
     ldr  r2, =f0
     str  r0, [r2]
     ldr  r2, =f1
     str  r1, [r2]
-
     mov  r4, r0               /*0*/
     mov  r5, r1               /*1*/
-
     cmp  r4, r5               /*equal choose r5*/
     beq  choose_r4
-
     lsrs r6, r4, #31          /*0*/
     lsrs r7, r5, #31          /*1*/
     cmp  r6, r7
     bne  diffSigns
-
     cmp  r6, #0               
     beq  bothPos
     cmp  r4, r5              
@@ -326,23 +325,23 @@ diffSigns:
     
     
 choose_r4:
-    ldr  r2, =fMax
+    ldr  r2, = fMax
     str  r4, [r2]
     mov  r3, r4
     b    unpack
 choose_r5:
-    ldr  r2, =fMax
+    ldr  r2, = fMax
     str  r5, [r2]
     mov  r3, r5
 
 /*unpack the winner*/
 unpack:
     lsrs r0, r3, #31
-    ldr  r1, =sbMax
-    str  r0, [r1]
+    ldr  r1, = sbMax
+    str  r0,[r1]
     lsrs r0, r3, #23
     ands r0, r0, #0xFF
-    ldr  r1, =storedExpMax
+    ldr  r1, = storedExpMax
     str  r0, [r1]
     subs r1, r0, #127
     ldr  r2, =realExpMax
@@ -357,13 +356,13 @@ unpack:
     beq  storeMant
     cmp  r0, #0xFF
     beq  storeMant
-    ldr  r12, =0x00800000
+    ldr  r12, = 0x00800000
     orr  r1, r1, r12
 storeMant:
-    ldr  r2, =mantMax
+    ldr  r2, = mantMax
     str  r1, [r2]
 
-    ldr  r0, =fMax           
+    ldr  r0, = fMax           
     pop  {r4-r7, lr}
     bx   lr
 
