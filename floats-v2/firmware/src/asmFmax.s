@@ -13,7 +13,7 @@
 .type nameStr,%gnu_unique_object
     
 /*** STUDENTS: Change the next line to your name!  **/
-nameStr: .asciz "Inigo Montoya"  
+nameStr: .asciz "Benzen Raspur"  
  
 .align
 
@@ -80,7 +80,18 @@ nanValue: .word 0x7FFFFFFF
  .type initVariables,%function
 initVariables:
     /* YOUR initVariables CODE BELOW THIS LINE! Don't forget to push and pop! */
+    push {r4-r7, LR}
+    movs r0, #0
 
+    ldr  r4, =f0              /*first*/
+    ldr  r5, =mantMax         /*last*/
+zero_loop:
+    str  r0, [r4], #4         /*store 0*/
+    cmp  r4, r5
+    ble  zero_loop
+    pop  {r4-r7, LR}
+    BX   LR
+    
     /* YOUR initVariables CODE ABOVE THIS LINE! Don't forget to push and pop! */
 
     
@@ -97,7 +108,12 @@ initVariables:
 .type getSignBit,%function
 getSignBit:
     /* YOUR getSignBit CODE BELOW THIS LINE! Don't forget to push and pop! */
-
+    push {LR}
+    ldr  r2, [r0]
+    lsrs r2, r2, #31
+    str  r2, [r1]
+    pop  {LR}
+    BX   LR
     /* YOUR getSignBit CODE ABOVE THIS LINE! Don't forget to push and pop! */
     
 
@@ -118,7 +134,13 @@ getSignBit:
 .type getExponent,%function
 getExponent:
     /* YOUR getExponent CODE BELOW THIS LINE! Don't forget to push and pop! */
-    
+    push {LR}
+    ldr   r2, [r0]
+    lsrs  r0, r2, #23
+    ands  r0, r0, #0xFF
+    subs  r1, r0, #127
+    pop   {LR}
+    bx    LR    
     /* YOUR getExponent CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -136,7 +158,21 @@ getExponent:
 .type getMantissa,%function
 getMantissa:
     /* YOUR getMantissa CODE BELOW THIS LINE! Don't forget to push and pop! */
-    
+    push {r2-r3, LR}
+    ldr   r2, [r0]
+    ubfx  r0, r2, #0, #23     /*22-0*/
+    mov   r1, r0
+    lsrs  r3, r2, #23        
+    ands  r3, r3, #0xFF
+    cmp   r3, #0
+    beq   doneMant            
+    cmp   r3, #0xFF
+    beq   doneMant            
+    ldr   r12, =0x00800000
+    orr   r1, r1, r12         /*add the hidden1*/
+doneMant:
+    pop   {r2-r3, LR}
+    BX    LR   
     /* YOUR getMantissa CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
 
@@ -156,6 +192,23 @@ getMantissa:
 .type asmIsZero,%function
 asmIsZero:
     /* YOUR asmIsZero CODE BELOW THIS LINE! Don't forget to push and pop! */
+asmIsZero:
+    push {LR}
+    ldr   r1, [r0]
+    cmp   r1, #0x00000000
+    beq   plusZ
+    cmp   r1, #0x80000000
+    beq   minusZ
+    movs  r0, #0
+    pop   {LR}
+    bx    LR
+plusZ:
+    movs  r0, #1
+    pop   {LR}
+    bx    LR
+minusZ:
+    movs  r0, #-1
+    pop   {LR}
 BX LR    
     /* YOUR asmIsZero CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
@@ -176,6 +229,28 @@ BX LR
 .type asmIsInf,%function
 asmIsInf:
     /* YOUR asmIsInf CODE BELOW THIS LINE! Don't forget to push and pop! */
+.global asmIsInf
+.type   asmIsInf,%function
+asmIsInf:
+    push {r2-r3, r12, lr}
+    ldr   r2, [r0]
+    lsrs  r3, r2, #23
+    ands  r3, r3, #0xFF
+    cmp   r3, #0xFF
+    bne   notInf
+    ldr   r12, =0x007FFFFF
+    ands  r3, r2, r12
+    bne   notInf                
+    lsrs  r3, r2, #31  
+    cmp   r3, #0
+    it    eq
+    moveq r0, #1
+    movne r0, #-1
+    pop   {r2-r3, r12, lr}
+    bx    lr
+notInf:
+    movs  r0, #0
+    pop   {r2-r3, r12, lr}
 BX LR    
     /* YOUR asmIsInf CODE ABOVE THIS LINE! Don't forget to push and pop! */
    
@@ -215,7 +290,83 @@ where:
 asmFmax:   
 
     /* YOUR asmFmax CODE BELOW THIS LINE! VVVVVVVVVVVVVVVVVVVVV  */
+    push {r4-r7, lr}
+
+    /* store incoming operands for autograder */
+    ldr  r2, =f0
+    str  r0, [r2]
+    ldr  r2, =f1
+    str  r1, [r2]
+
+    mov  r4, r0               /*0*/
+    mov  r5, r1               /*1*/
+
+    cmp  r4, r5               /*equal choose r5*/
+    beq  choose_r4
+
+    lsrs r6, r4, #31          /*0*/
+    lsrs r7, r5, #31          /*1*/
+    cmp  r6, r7
+    bne  diffSigns
+
+    cmp  r6, #0               
+    beq  bothPos
+    cmp  r4, r5              
+    blt  choose_r4           /*smaller ones wins*/
+    b    choose_r5
+bothPos:
+    cmp  r4, r5
+    bgt  choose_r4
+    b    choose_r5
+diffSigns:
+    cmp  r6, #0               
+    beq  choose_r4
+    b    choose_r5
+
     
+    
+choose_r4:
+    ldr  r2, =fMax
+    str  r4, [r2]
+    mov  r3, r4
+    b    unpack
+choose_r5:
+    ldr  r2, =fMax
+    str  r5, [r2]
+    mov  r3, r5
+
+/*unpack the winner*/
+unpack:
+    lsrs r0, r3, #31
+    ldr  r1, =sbMax
+    str  r0, [r1]
+    lsrs r0, r3, #23
+    ands r0, r0, #0xFF
+    ldr  r1, =storedExpMax
+    str  r0, [r1]
+    subs r1, r0, #127
+    ldr  r2, =realExpMax
+    str  r1, [r2]
+
+    /*mantissa*/
+    ubfx r1, r3, #0, #23
+    mov  r0, r1
+    lsrs r0, r3, #23
+    ands r0, r0, #0xFF
+    cmp  r0, #0
+    beq  storeMant
+    cmp  r0, #0xFF
+    beq  storeMant
+    ldr  r12, =0x00800000
+    orr  r1, r1, r12
+storeMant:
+    ldr  r2, =mantMax
+    str  r1, [r2]
+
+    ldr  r0, =fMax           
+    pop  {r4-r7, lr}
+    bx   lr
+
 BX LR    
     /* YOUR asmFmax CODE ABOVE THIS LINE! ^^^^^^^^^^^^^^^^^^^^^  */
 
@@ -223,7 +374,3 @@ BX LR
 
 /**********************************************************************/   
 .end  /* The assembler will not process anything after this directive!!! */
-           
-
-
-
